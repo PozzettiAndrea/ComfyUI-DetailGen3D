@@ -1,0 +1,447 @@
+{
+  "id": "fb350dc1-26e4-467d-b08f-7b67db9357a1",
+  "revision": 0,
+  "last_node_id": 13,
+  "last_link_id": 18,
+  "nodes": [
+    {
+      "id": 2,
+      "type": "DetailGen3D_PrepareMesh",
+      "pos": [
+        772.41796875,
+        187.58203125
+      ],
+      "size": [
+        279.3501953125,
+        102
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "trimesh",
+          "type": "TRIMESH",
+          "link": 2
+        },
+        {
+          "name": "model",
+          "type": "DETAILGEN3D_MODEL",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "latent",
+          "type": "DETAILGEN3D_LATENT",
+          "links": [
+            10
+          ]
+        },
+        {
+          "name": "normalized_mesh",
+          "type": "TRIMESH",
+          "links": [
+            9
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "PozzettiAndrea/ComfyUI-DetailGen3D",
+        "ver": "unknown",
+        "Node name for S&R": "DetailGen3D_PrepareMesh"
+      },
+      "widgets_values": [
+        20480,
+        1.9
+      ]
+    },
+    {
+      "id": 6,
+      "type": "LoadImage",
+      "pos": [
+        689.0390625,
+        536.98828125
+      ],
+      "size": [
+        282.798828125,
+        314
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            11
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            14
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.4.0",
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "elephant.png",
+        "image"
+      ]
+    },
+    {
+      "id": 13,
+      "type": "InvertMask",
+      "pos": [
+        982.5512767125648,
+        432.1861268588489
+      ],
+      "size": [
+        140,
+        26
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 14
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            15,
+            16
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.4.0",
+        "Node name for S&R": "InvertMask"
+      }
+    },
+    {
+      "id": 12,
+      "type": "MaskPreview",
+      "pos": [
+        1183.9626653419325,
+        600.7883917314427
+      ],
+      "size": [
+        140,
+        246
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 16
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.4.0",
+        "Node name for S&R": "MaskPreview"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 11,
+      "type": "DetailGen3D_Generate",
+      "pos": [
+        1212.7048314242625,
+        198.70332688902533
+      ],
+      "size": [
+        284.205078125,
+        238
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "DETAILGEN3D_MODEL",
+          "link": 18
+        },
+        {
+          "name": "latent",
+          "type": "DETAILGEN3D_LATENT",
+          "link": 10
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 11
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 15
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "type": "TRIMESH",
+          "links": [
+            17
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "PozzettiAndrea/ComfyUI-DetailGen3D",
+        "ver": "unknown",
+        "Node name for S&R": "DetailGen3D_Generate"
+      },
+      "widgets_values": [
+        10,
+        50,
+        0,
+        1140343439,
+        "randomize",
+        9
+      ]
+    },
+    {
+      "id": 3,
+      "type": "LoadDetailGen3DModel",
+      "pos": [
+        359.8515625,
+        397.84765625
+      ],
+      "size": [
+        270,
+        146
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "DETAILGEN3D_MODEL",
+          "links": [
+            1,
+            18
+          ]
+        },
+        {
+          "name": "encoder",
+          "type": "DETAILGEN3D_MODEL",
+          "links": null
+        },
+        {
+          "name": "decoder",
+          "type": "DETAILGEN3D_MODEL",
+          "links": null
+        }
+      ],
+      "properties": {
+        "aux_id": "PozzettiAndrea/ComfyUI-DetailGen3D",
+        "ver": "unknown",
+        "Node name for S&R": "LoadDetailGen3DModel"
+      },
+      "widgets_values": [
+        "hf",
+        "auto",
+        "your_token_here"
+      ]
+    },
+    {
+      "id": 1,
+      "type": "GeomPackLoadMesh",
+      "pos": [
+        273.23046875,
+        243.02734375
+      ],
+      "size": [
+        270,
+        78
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "mesh",
+          "type": "TRIMESH",
+          "links": [
+            2
+          ]
+        },
+        {
+          "name": "texture",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-geometrypack",
+        "ver": "d19c31ebf956a107b3b543e9e686f438e8cf9cd2",
+        "Node name for S&R": "GeomPackLoadMesh",
+        "aux_id": "PozzettiAndrea/ComfyUI-GeometryPack"
+      },
+      "widgets_values": [
+        "3d/elephant.glb"
+      ]
+    },
+    {
+      "id": 10,
+      "type": "GeomPackPreviewMeshDual",
+      "pos": [
+        1676.5701613656759,
+        136.54101914001615
+      ],
+      "size": [
+        768,
+        834
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh_1",
+          "type": "TRIMESH",
+          "link": 9
+        },
+        {
+          "name": "mesh_2",
+          "type": "TRIMESH",
+          "link": 17
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfyui-geometrypack",
+        "ver": "d19c31ebf956a107b3b543e9e686f438e8cf9cd2",
+        "Node name for S&R": "GeomPackPreviewMeshDual"
+      },
+      "widgets_values": [
+        "slider",
+        "fields",
+        1,
+        1,
+        ""
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      3,
+      0,
+      2,
+      1,
+      "DETAILGEN3D_MODEL"
+    ],
+    [
+      2,
+      1,
+      0,
+      2,
+      0,
+      "TRIMESH"
+    ],
+    [
+      9,
+      2,
+      1,
+      10,
+      0,
+      "TRIMESH"
+    ],
+    [
+      10,
+      2,
+      0,
+      11,
+      1,
+      "DETAILGEN3D_LATENT"
+    ],
+    [
+      11,
+      6,
+      0,
+      11,
+      2,
+      "IMAGE"
+    ],
+    [
+      14,
+      6,
+      1,
+      13,
+      0,
+      "MASK"
+    ],
+    [
+      15,
+      13,
+      0,
+      11,
+      3,
+      "MASK"
+    ],
+    [
+      16,
+      13,
+      0,
+      12,
+      0,
+      "MASK"
+    ],
+    [
+      17,
+      11,
+      0,
+      10,
+      1,
+      "TRIMESH"
+    ],
+    [
+      18,
+      3,
+      0,
+      11,
+      0,
+      "DETAILGEN3D_MODEL"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.7627768444385465,
+      "offset": [
+        -191.6022899672863,
+        168.4964970800058
+      ]
+    },
+    "workflowRendererVersion": "LG",
+    "frontendVersion": "1.34.8"
+  },
+  "version": 0.4
+}

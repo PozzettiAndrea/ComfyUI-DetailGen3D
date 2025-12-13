@@ -1,0 +1,26 @@
+# ComfyUI-DetailGen3D Requirements
+
+# Core ML libraries
+diffusers
+transformers
+einops
+
+# HuggingFace model downloading
+huggingface_hub
+accelerate
+
+# 3D mesh processing
+trimesh
+
+# Marching cubes for SDF to mesh conversion
+scikit-image
+
+# Numpy (version constraint for compatibility)
+numpy<2.0
+
+# Configuration
+omegaconf
+
+# Type hints
+jaxtyping
+typeguard

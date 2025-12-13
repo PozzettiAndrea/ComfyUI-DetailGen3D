@@ -1,0 +1,30 @@
+[project]
+name = "comfyui-detailgen3d"
+description = "ComfyUI wrapper for DetailGen3D: enhance coarse 3D meshes with geometric detail. Compatible with GeometryPack."
+version = "0.0.1"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+
+dependencies = [
+    "diffusers",
+    "transformers",
+    "einops",
+    "huggingface_hub",
+    "trimesh",
+    "scikit-image",
+    "numpy<2.0",
+    "omegaconf",
+    "jaxtyping",
+    "typeguard",
+]
+
+[project.urls]
+Repository = "https://github.com/PozzettiAndrea/ComfyUI-DetailGen3D"
+Documentation = "https://github.com/PozzettiAndrea/ComfyUI-DetailGen3D#readme"
+"Bug Tracker" = "https://github.com/PozzettiAndrea/ComfyUI-DetailGen3D/issues"
+
+# ComfyUI Registry configuration
+[tool.comfy]
+PublisherId = "pznodes"
+DisplayName = "DetailGen3D"
+Icon = ""
