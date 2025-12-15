@@ -24,3 +24,19 @@ omegaconf
 # Type hints
 jaxtyping
 typeguard
+
+# ============================================
+# Texture Generation Dependencies (MV-Adapter)
+# ============================================
+# Note: nvdiffrast is installed via install.py
+# (requires CUDA wheels from sam3dobjects-wheels)
+
+# Image processing for texture baking
+Pillow
+opencv-python
+
+# safetensors for loading adapter weights
+safetensors
+
+# torchvision for image transforms
+torchvision

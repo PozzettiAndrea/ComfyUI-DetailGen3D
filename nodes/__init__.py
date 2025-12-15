@@ -6,16 +6,34 @@ from .load_model import LoadDetailGen3DModel, NODE_CLASS_MAPPINGS as LOAD_MAPPIN
 from .prepare_mesh import DetailGen3D_PrepareMesh, NODE_CLASS_MAPPINGS as PREPARE_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS as PREPARE_DISPLAY
 from .generate import DetailGen3D_Generate, NODE_CLASS_MAPPINGS as GENERATE_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS as GENERATE_DISPLAY
 
+# Texture nodes (optional - only load if dependencies available)
+try:
+    from .load_texture_model import LoadDetailGen3D_TextureModel, NODE_CLASS_MAPPINGS as TEXTURE_LOAD_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS as TEXTURE_LOAD_DISPLAY
+    from .texture import DetailGen3D_Texture, NODE_CLASS_MAPPINGS as TEXTURE_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS as TEXTURE_DISPLAY
+    TEXTURE_AVAILABLE = True
+except ImportError as e:
+    print(f"[DetailGen3D] Texture nodes not available: {e}")
+    print("[DetailGen3D] Run install.py to install nvdiffrast for texture support")
+    TEXTURE_AVAILABLE = False
+    TEXTURE_LOAD_MAPPINGS = {}
+    TEXTURE_LOAD_DISPLAY = {}
+    TEXTURE_MAPPINGS = {}
+    TEXTURE_DISPLAY = {}
+
 # Collect all node class mappings
 NODE_CLASS_MAPPINGS = {}
 NODE_CLASS_MAPPINGS.update(LOAD_MAPPINGS)
 NODE_CLASS_MAPPINGS.update(PREPARE_MAPPINGS)
 NODE_CLASS_MAPPINGS.update(GENERATE_MAPPINGS)
+NODE_CLASS_MAPPINGS.update(TEXTURE_LOAD_MAPPINGS)
+NODE_CLASS_MAPPINGS.update(TEXTURE_MAPPINGS)
 
 # Collect all display name mappings
 NODE_DISPLAY_NAME_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS.update(LOAD_DISPLAY)
 NODE_DISPLAY_NAME_MAPPINGS.update(PREPARE_DISPLAY)
 NODE_DISPLAY_NAME_MAPPINGS.update(GENERATE_DISPLAY)
+NODE_DISPLAY_NAME_MAPPINGS.update(TEXTURE_LOAD_DISPLAY)
+NODE_DISPLAY_NAME_MAPPINGS.update(TEXTURE_DISPLAY)
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
