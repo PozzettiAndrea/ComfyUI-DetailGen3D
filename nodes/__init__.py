@@ -9,7 +9,7 @@ from .generate import DetailGen3D_Generate, NODE_CLASS_MAPPINGS as GENERATE_MAPP
 # Texture nodes (optional - only load if dependencies available)
 try:
     from .load_texture_model import LoadDetailGen3D_TextureModel, NODE_CLASS_MAPPINGS as TEXTURE_LOAD_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS as TEXTURE_LOAD_DISPLAY
-    from .texture import DetailGen3D_Texture, NODE_CLASS_MAPPINGS as TEXTURE_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS as TEXTURE_DISPLAY
+    from .texture import DetailGen3D_GenerateMultiView, DetailGen3D_BakeTexture, NODE_CLASS_MAPPINGS as TEXTURE_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS as TEXTURE_DISPLAY
     TEXTURE_AVAILABLE = True
 except ImportError as e:
     print(f"[DetailGen3D] Texture nodes not available: {e}")

@@ -10,9 +10,10 @@ import os
 import sys
 import tempfile
 import torch
+import torch.nn.functional as F
 import numpy as np
 from PIL import Image
-from typing import List
+from typing import List, Optional
 import trimesh
 
 # Add vendor to path
@@ -22,6 +23,78 @@ if _VENDOR_PATH not in sys.path:
 
 from .utils import comfy_image_to_pil
 from .load_texture_model import DETAILGEN3D_TEXTURE_MODEL
+
+# Import vendor utilities for proper UV baking
+from mvadapter.utils.mesh_utils import (
+    TexturedMesh,
+    get_orthogonal_camera,
+    NVDiffRastContextWrapper,
+)
+from mvadapter.utils.mesh_utils.projection import CameraProjection
+from mvadapter.utils.mesh_utils.utils import tensor_to_image
+
+
+def trimesh_to_textured_mesh(
+    mesh: trimesh.Trimesh,
+    uv_size: int = 2048,
+    device: str = "cuda",
+    rescale: bool = True,
+    scale: float = 0.5,
+) -> TexturedMesh:
+    """Convert a trimesh.Trimesh to TexturedMesh for nvdiffrast processing.
+
+    Args:
+        mesh: Input trimesh
+        uv_size: UV texture resolution
+        device: Target device
+        rescale: If True, center and rescale mesh to fit in [-scale, scale]
+                 This MUST match the rescaling done in GenerateMultiView's load_mesh()
+        scale: Target scale (default 0.5 matches load_mesh default)
+    """
+
+    # Get vertices and faces
+    vertices = mesh.vertices.copy()
+
+    if rescale:
+        # Center mesh (same as load_mesh)
+        centroid = vertices.mean(axis=0)
+        vertices = vertices - centroid
+        # Scale to fit in [-scale, scale] (same as load_mesh)
+        max_extent = np.abs(vertices).max()
+        if max_extent > 0:
+            vertices = vertices / max_extent * scale
+
+    v_pos = torch.tensor(vertices, dtype=torch.float32)
+    t_pos_idx = torch.tensor(mesh.faces, dtype=torch.int64)
+
+    # Get UVs if available
+    if hasattr(mesh.visual, 'uv') and mesh.visual.uv is not None:
+        v_tex = torch.tensor(mesh.visual.uv, dtype=torch.float32)
+        # Flip V coordinate (trimesh uses bottom-left origin, nvdiffrast uses top-left)
+        v_tex[:, 1] = 1.0 - v_tex[:, 1]
+        t_tex_idx = t_pos_idx.clone()
+    else:
+        raise ValueError("Mesh must have UV coordinates for texture baking")
+
+    # Create empty texture
+    texture = torch.zeros((uv_size, uv_size, 3), dtype=torch.float32)
+
+    # Create TexturedMesh
+    textured_mesh = TexturedMesh(
+        v_pos=v_pos,
+        t_pos_idx=t_pos_idx,
+        v_tex=v_tex,
+        t_tex_idx=t_tex_idx,
+        texture=texture,
+    )
+
+    # Set stitched mesh (for proper normal computation)
+    textured_mesh.set_stitched_mesh(v_pos, t_pos_idx)
+
+    # Move to device
+    textured_mesh.to(device)
+
+    return textured_mesh
 
 
 class DetailGen3D_GenerateMultiView:
@@ -245,10 +318,11 @@ class DetailGen3D_GenerateMultiView:
 
 class DetailGen3D_BakeTexture:
     """
-    Bake multi-view images onto mesh UV texture.
+    Bake multi-view images onto mesh UV texture using proper nvdiffrast projection.
 
     Takes a mesh with UV coordinates and multi-view images,
-    projects the images onto the UV space to create a texture.
+    projects the images onto the UV space to create a texture using
+    proper camera projection, depth testing, and visibility blending.
     """
 
     @classmethod
@@ -270,6 +344,20 @@ class DetailGen3D_BakeTexture:
                     "step": 256,
                     "tooltip": "UV texture resolution"
                 }),
+                "blend_alpha": ("FLOAT", {
+                    "default": 3.0,
+                    "min": 1.0,
+                    "max": 10.0,
+                    "step": 0.5,
+                    "tooltip": "Exponential blending alpha (higher = sharper transitions)"
+                }),
+                "aoi_threshold": ("FLOAT", {
+                    "default": 0.2,
+                    "min": 0.0,
+                    "max": 0.5,
+                    "step": 0.05,
+                    "tooltip": "Angle of incidence threshold for validity"
+                }),
             }
         }
 
@@ -281,15 +369,17 @@ class DetailGen3D_BakeTexture:
     )
     FUNCTION = "bake_texture"
     CATEGORY = "DetailGen3D"
-    DESCRIPTION = "Bake multi-view images onto mesh UV to create textured mesh."
+    DESCRIPTION = "Bake multi-view images onto mesh UV using proper nvdiffrast projection."
 
     def bake_texture(
         self,
         mesh: trimesh.Trimesh,
         mv_images: torch.Tensor,
         uv_size: int = 2048,
+        blend_alpha: float = 3.0,
+        aoi_threshold: float = 0.2,
     ):
-        print(f"[DetailGen3D] Baking texture (UV size: {uv_size})...")
+        print(f"[DetailGen3D] Baking texture with nvdiffrast (UV size: {uv_size})...")
 
         # Check for UVs
         if not hasattr(mesh.visual, 'uv') or mesh.visual.uv is None:
@@ -297,119 +387,123 @@ class DetailGen3D_BakeTexture:
                 "Mesh has no UV coordinates! Use GeomPack UV Unwrap node first."
             )
 
-        uv = mesh.visual.uv
-        print(f"[DetailGen3D] Mesh has {len(uv)} UV coordinates")
+        print(f"[DetailGen3D] Mesh has {len(mesh.visual.uv)} UV coordinates")
+        print(f"[DetailGen3D] Mesh has {len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
 
-        # Convert tensor to list of PIL images
-        if mv_images.dim() == 4:
-            mv_list = [
-                Image.fromarray((mv_images[i].cpu().numpy() * 255).astype(np.uint8))
-                for i in range(mv_images.shape[0])
-            ]
-        else:
+        # Validate input
+        if mv_images.dim() != 4:
             raise ValueError(f"Expected 4D tensor [B,H,W,C], got shape {mv_images.shape}")
 
-        if len(mv_list) != 6:
-            print(f"[DetailGen3D] Warning: Expected 6 views, got {len(mv_list)}")
+        num_views = mv_images.shape[0]
+        if num_views != 6:
+            print(f"[DetailGen3D] Warning: Expected 6 views, got {num_views}")
 
-        # Bake texture
-        textured_mesh, texture_image = self._bake_texture_impl(
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        # Convert multi-view images to tensor format for projection
+        # mv_images is [B, H, W, C] in range [0, 1]
+        mv_tensor = mv_images.to(device)
+        print(f"[DetailGen3D] Multi-view images shape: {mv_tensor.shape}")
+
+        # Bake texture using proper projection
+        texture_tensor = self._bake_with_projection(
             mesh=mesh,
-            mv_images=mv_list,
-            uv=uv,
+            mv_images=mv_tensor,
             uv_size=uv_size,
+            blend_alpha=blend_alpha,
+            aoi_threshold=aoi_threshold,
+            device=device,
         )
 
-        # Convert texture to ComfyUI format [B, H, W, C]
-        texture_np = np.array(texture_image).astype(np.float32) / 255.0
-        texture_tensor = torch.from_numpy(texture_np).unsqueeze(0)
-
-        print(f"[DetailGen3D] Texture baking complete")
-        return (textured_mesh, texture_tensor)
-
-    def _bake_texture_impl(
-        self,
-        mesh: trimesh.Trimesh,
-        mv_images: List[Image.Image],
-        uv: np.ndarray,
-        uv_size: int,
-    ) -> tuple:
-        """Bake multi-view images onto mesh UV texture."""
-
-        # Create texture by blending views
-        texture = np.zeros((uv_size, uv_size, 3), dtype=np.float32)
-        weight_sum = np.zeros((uv_size, uv_size, 1), dtype=np.float32)
-
-        # Camera azimuths for view selection
-        azimuths = [0, 90, 180, 270, 180, 180]
-        elevations = [0, 0, 0, 0, 90, -90]
-
-        vertices = mesh.vertices
-        faces = mesh.faces
-        vertex_normals = mesh.vertex_normals
-
-        for view_idx, mv_img in enumerate(mv_images):
-            mv_array = np.array(mv_img).astype(np.float32) / 255.0
-
-            azim = np.radians(azimuths[view_idx])
-            elev = np.radians(elevations[view_idx])
-            cam_dir = np.array([
-                np.cos(elev) * np.sin(azim),
-                np.sin(elev),
-                np.cos(elev) * np.cos(azim)
-            ])
-
-            for face in faces:
-                face_uv = uv[face]
-                face_normals = vertex_normals[face]
-                face_verts = vertices[face]
-
-                avg_normal = face_normals.mean(axis=0)
-                avg_normal = avg_normal / (np.linalg.norm(avg_normal) + 1e-8)
-
-                weight = max(0, np.dot(avg_normal, cam_dir))
-                if weight < 0.1:
-                    continue
-
-                proj_x = (face_verts[:, 0] + 1) / 2
-                proj_y = (face_verts[:, 1] + 1) / 2
-
-                cos_a, sin_a = np.cos(-azim), np.sin(-azim)
-                rotated_x = proj_x * cos_a - (face_verts[:, 2] + 1) / 2 * sin_a
-
-                img_x = ((rotated_x + 0.5) * mv_array.shape[1]).astype(int).clip(0, mv_array.shape[1] - 1)
-                img_y = ((1 - proj_y) * mv_array.shape[0]).astype(int).clip(0, mv_array.shape[0] - 1)
-
-                colors = mv_array[img_y, img_x]
-
-                uv_x = (face_uv[:, 0] * uv_size).astype(int).clip(0, uv_size - 1)
-                uv_y = ((1 - face_uv[:, 1]) * uv_size).astype(int).clip(0, uv_size - 1)
-
-                for i in range(3):
-                    texture[uv_y[i], uv_x[i]] += colors[i] * weight
-                    weight_sum[uv_y[i], uv_x[i]] += weight
-
-        # Normalize by weights (fixed broadcasting)
-        mask = weight_sum[:, :, 0] > 0
-        texture[mask] /= weight_sum[mask][:, np.newaxis]
-
-        # Fill holes with average color
-        if not mask.all():
-            avg_color = texture[mask].mean(axis=0) if mask.any() else np.array([0.5, 0.5, 0.5])
-            texture[~mask] = avg_color
-
-        # Convert to uint8
-        texture = (texture * 255).clip(0, 255).astype(np.uint8)
-        texture_image = Image.fromarray(texture)
+        # Convert texture to PIL for trimesh
+        texture_np = (texture_tensor.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
+        texture_image = Image.fromarray(texture_np)
 
         # Create textured mesh
         textured_mesh = mesh.copy()
         textured_mesh.visual = trimesh.visual.TextureVisuals(
-            uv=uv,
+            uv=mesh.visual.uv,
             image=texture_image
         )
 
-        return textured_mesh, texture_image
+        # Convert texture to ComfyUI format [B, H, W, C]
+        texture_out = texture_tensor.unsqueeze(0).cpu()
+
+        print(f"[DetailGen3D] Texture baking complete")
+        return (textured_mesh, texture_out)
+
+    def _bake_with_projection(
+        self,
+        mesh: trimesh.Trimesh,
+        mv_images: torch.Tensor,
+        uv_size: int,
+        blend_alpha: float,
+        aoi_threshold: float,
+        device: str,
+    ) -> torch.Tensor:
+        """Bake multi-view images using proper nvdiffrast camera projection."""
+
+        print(f"[DetailGen3D] Converting mesh to TexturedMesh format...")
+        print(f"[DetailGen3D] Original mesh bounds: {mesh.bounds}")
+
+        # Convert trimesh to TexturedMesh (with rescaling to match GenerateMultiView)
+        textured_mesh = trimesh_to_textured_mesh(mesh, uv_size=uv_size, device=device, rescale=True, scale=0.5)
+        print(f"[DetailGen3D] Rescaled mesh bounds: [{textured_mesh.v_pos.min().item():.3f}, {textured_mesh.v_pos.max().item():.3f}]")
+
+        # Setup cameras - MUST match GenerateMultiView exactly
+        # GenerateMultiView uses: azimuth_deg=[x - 90 for x in [0, 90, 180, 270, 180, 180]]
+        # Which equals: [-90, 0, 90, 180, 90, 90]
+        num_views = mv_images.shape[0]
+        base_azimuths = [0, 90, 180, 270, 180, 180][:num_views]
+        elevations = [0, 0, 0, 0, 89.99, -89.99][:num_views]
+
+        print(f"[DetailGen3D] Setting up {num_views} cameras...")
+        cameras = get_orthogonal_camera(
+            elevation_deg=elevations,
+            distance=[1.8] * num_views,
+            left=-0.55,
+            right=0.55,
+            bottom=-0.55,
+            top=0.55,
+            azimuth_deg=[x - 90 for x in base_azimuths],  # Match GenerateMultiView
+            device=device,
+        )
+
+        # Create CameraProjection for proper UV baking
+        print(f"[DetailGen3D] Initializing CameraProjection...")
+        cam_proj = CameraProjection(
+            pb_backend="torch-native",  # Use native PyTorch (no CUDA kernel compilation)
+            bg_remover=None,
+            device=device,
+        )
+
+        # Project multi-view images onto UV space
+        print(f"[DetailGen3D] Projecting views onto UV space...")
+        uv_texture = cam_proj(
+            images=mv_images,
+            mesh=textured_mesh,
+            cam=cameras,
+            uv_size=uv_size,
+            aoi_cos_valid_threshold=aoi_threshold,
+            depth_grad_dilation=5,
+            depth_grad_threshold=0.1,
+            uv_exp_blend_alpha=blend_alpha,
+            uv_exp_blend_view_weight=torch.ones(num_views),
+            poisson_blending=False,  # Faster without poisson
+            from_scratch=True,
+            uv_padding=True,
+            return_dict=False,
+        )
+
+        if uv_texture is None:
+            raise RuntimeError("UV projection failed - check mesh alignment with views")
+
+        print(f"[DetailGen3D] UV texture shape: {uv_texture.shape}")
+
+        # Clamp and return
+        uv_texture = uv_texture.clamp(0.0, 1.0)
+
+        return uv_texture
 
 
 # Node mappings

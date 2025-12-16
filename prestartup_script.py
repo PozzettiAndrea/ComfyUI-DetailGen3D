@@ -13,10 +13,10 @@ def copy_example_assets():
 
     # Get paths
     node_dir = Path(__file__).parent
-    comfyui_dir = node_dir.parent.parent.parent  # ComfyUI root
+    comfyui_dir = node_dir.parent.parent  # ComfyUI root (custom_nodes -> ComfyUI)
 
-    # Source assets directory (in DetailGen3D repo)
-    assets_dir = comfyui_dir.parent / "DetailGen3D" / "assets"
+    # Source assets directory (in this node's folder)
+    assets_dir = node_dir / "assets"
 
     if not assets_dir.exists():
         return
