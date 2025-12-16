@@ -132,7 +132,8 @@
         "cnr_id": "comfy-core",
         "ver": "0.4.0",
         "Node name for S&R": "InvertMask"
-      }
+      },
+      "widgets_values": []
     },
     {
       "id": 12,
@@ -162,65 +163,6 @@
         "Node name for S&R": "MaskPreview"
       },
       "widgets_values": []
-    },
-    {
-      "id": 11,
-      "type": "DetailGen3D_Generate",
-      "pos": [
-        1212.7048314242625,
-        198.70332688902533
-      ],
-      "size": [
-        284.205078125,
-        238
-      ],
-      "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "DETAILGEN3D_MODEL",
-          "link": 18
-        },
-        {
-          "name": "latent",
-          "type": "DETAILGEN3D_LATENT",
-          "link": 10
-        },
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 11
-        },
-        {
-          "name": "mask",
-          "type": "MASK",
-          "link": 15
-        }
-      ],
-      "outputs": [
-        {
-          "name": "mesh",
-          "type": "TRIMESH",
-          "links": [
-            17
-          ]
-        }
-      ],
-      "properties": {
-        "aux_id": "PozzettiAndrea/ComfyUI-DetailGen3D",
-        "ver": "unknown",
-        "Node name for S&R": "DetailGen3D_Generate"
-      },
-      "widgets_values": [
-        10,
-        50,
-        0,
-        1140343439,
-        "randomize",
-        9
-      ]
     },
     {
       "id": 3,
@@ -346,6 +288,65 @@
         1,
         ""
       ]
+    },
+    {
+      "id": 11,
+      "type": "DetailGen3D_Generate",
+      "pos": [
+        1212.7048314242625,
+        198.70332688902533
+      ],
+      "size": [
+        284.205078125,
+        238
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "DETAILGEN3D_MODEL",
+          "link": 18
+        },
+        {
+          "name": "latent",
+          "type": "DETAILGEN3D_LATENT",
+          "link": 10
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 11
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 15
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "type": "TRIMESH",
+          "links": [
+            17
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "PozzettiAndrea/ComfyUI-DetailGen3D",
+        "ver": "unknown",
+        "Node name for S&R": "DetailGen3D_Generate"
+      },
+      "widgets_values": [
+        10,
+        50,
+        0,
+        42,
+        "fixed",
+        9
+      ]
     }
   ],
   "links": [
@@ -440,8 +441,8 @@
         168.4964970800058
       ]
     },
-    "workflowRendererVersion": "LG",
-    "frontendVersion": "1.34.8"
+    "frontendVersion": "1.34.9",
+    "workflowRendererVersion": "LG"
   },
   "version": 0.4
 }
