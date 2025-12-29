@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-detailgen3d"
-description = "ComfyUI wrapper for DetailGen3D: enhance coarse 3D meshes with geometric detail. Compatible with GeometryPack."
+description = "THIS NODE IS WIP. ComfyUI wrapper for DetailGen3D: enhance coarse 3D meshes with geometric detail. Compatible with GeometryPack."
 version = "0.0.1"
 license = {file = "LICENSE"}
 requires-python = ">=3.10"

@@ -1,3 +1,7 @@
+----------
+Work in Progress! This node is not finished.
+----------
+
 # ComfyUI-DetailGen3D
 
 ComfyUI custom nodes for [DetailGen3D](https://github.com/VAST-AI-Research/DetailGen3D) - enhance coarse 3D meshes with geometric detail.
